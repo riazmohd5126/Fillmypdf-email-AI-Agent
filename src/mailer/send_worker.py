@@ -17,12 +17,22 @@ from src.db.models import (
     MessageStatus,
     SequenceStep,
 )
-from src.mailer.gmail_client import GmailClient
+from src.mailer.base_client import EmailClient
 from src.mailer.message_builder import build_mime_message
 from src.mailer.pre_send_checks import PreSendOutcome, PreSendResult, run_pre_send_checks
 from src.mailer.send_window import add_business_days, next_send_window_start
 
 logger = logging.getLogger(__name__)
+
+
+def get_email_client() -> EmailClient:
+    if config.EMAIL_PROVIDER == "smtp":
+        from src.mailer.smtp_client import SMTPClient
+
+        return SMTPClient()
+    from src.mailer.gmail_client import GmailClient
+
+    return GmailClient()
 
 
 def fetch_due_enrollments(db: Session, *, limit: int = 5) -> list[Enrollment]:
@@ -152,7 +162,7 @@ def run_send_cycle() -> None:
 
     db = SessionLocal()
     try:
-        gmail = GmailClient()
+        email_client = get_email_client()
         due = fetch_due_enrollments(db, limit=5)
         sent_today = today_sent_count(db)
 
@@ -197,7 +207,7 @@ def run_send_cycle() -> None:
             )
 
             try:
-                sent = gmail.send(mime_message, thread_id=enrollment.gmail_thread_id)
+                sent = email_client.send(mime_message, thread_id=enrollment.gmail_thread_id)
             except Exception as exc:  # noqa: BLE001 — any send failure must not crash the cycle
                 logger.exception("send failed for enrollment %s", enrollment.id)
                 message.status = MessageStatus.failed

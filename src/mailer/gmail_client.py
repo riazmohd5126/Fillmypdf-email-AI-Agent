@@ -7,18 +7,13 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 from src import config
+from src.mailer.base_client import EmailSendResult
 
 # gmail.modify is only needed if the engine starts labeling messages (design doc 7.1)
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/gmail.readonly",
 ]
-
-
-class GmailSendResult:
-    def __init__(self, message_id: str, thread_id: str):
-        self.message_id = message_id
-        self.thread_id = thread_id
 
 
 class GmailClient:
@@ -43,11 +38,11 @@ class GmailClient:
         )
         self._service = build("gmail", "v1", credentials=self._credentials, cache_discovery=False)
 
-    def send(self, mime_message: MIMEText, thread_id: str | None = None) -> GmailSendResult:
+    def send(self, mime_message: MIMEText, thread_id: str | None = None) -> EmailSendResult:
         raw = base64.urlsafe_b64encode(mime_message.as_bytes()).decode()
         body = {"raw": raw}
         if thread_id:
             body["threadId"] = thread_id
 
         sent = self._service.users().messages().send(userId="me", body=body).execute()
-        return GmailSendResult(message_id=sent["id"], thread_id=sent["threadId"])
+        return EmailSendResult(message_id=sent["id"], thread_id=sent["threadId"])
