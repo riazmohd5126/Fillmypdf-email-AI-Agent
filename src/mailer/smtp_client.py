@@ -39,6 +39,13 @@ class SMTPClient:
             server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
             server.sendmail(from_addr, [to_addr], mime_message.as_string())
         finally:
-            server.quit()
+            # Some providers (Yahoo included) close the connection right after
+            # accepting the message, before our QUIT gets a reply. The send
+            # above already succeeded in that case — don't let a disconnected
+            # cleanup call mask that as a failure.
+            try:
+                server.quit()
+            except (smtplib.SMTPServerDisconnected, OSError):
+                server.close()
 
         return EmailSendResult(message_id=message_id, thread_id=None)
