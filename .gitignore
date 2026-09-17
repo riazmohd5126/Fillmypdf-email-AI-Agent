@@ -27,3 +27,5 @@ data/leads/
 .pytest_cache/
 .coverage
 htmlcov/
+venv/
+*.db
